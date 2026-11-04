@@ -67,6 +67,7 @@ const LIBRARY_DATA_COLLECTION = createMockCollection({
   id: 6465,
   name: "Data",
   type: "library-data",
+  is_library_root: true,
   here: ["table"],
   below: ["table"],
   children: [
@@ -78,6 +79,7 @@ const LIBRARY_METRICS_COLLECTION = createMockCollection({
   id: 6466,
   name: "Metrics",
   type: "library-metrics",
+  is_library_root: true,
   here: ["metric"],
 });
 const LIBRARY_COLLECTION_ID = 6464;
@@ -1580,10 +1582,15 @@ describe("DataSourceSelector", () => {
       await userEvent.click(screen.getByText("Data"));
 
       const tree = await screen.findByTestId("saved-entity-collection-tree");
+      expect(
+        within(tree).getByRole("menuitem", { name: "Data", expanded: true }),
+      ).toBeInTheDocument();
       expect(within(tree).getByText("Client A")).toBeInTheDocument();
       expect(await screen.findByText("Client A Orders")).toBeInTheDocument();
       await userEvent.click(within(tree).getByText("Client B"));
       expect(await screen.findByText("Client B Accounts")).toBeInTheDocument();
+      await userEvent.click(within(tree).getByText("Data"));
+      expect(screen.getByText("Client B Accounts")).toBeInTheDocument();
     });
 
     it("should offer one Metrics folder holding every readable subfolder when the user can't read Metrics itself", async () => {
@@ -1600,10 +1607,15 @@ describe("DataSourceSelector", () => {
       await userEvent.click(screen.getByText("Metrics"));
 
       const tree = await screen.findByTestId("saved-entity-collection-tree");
+      expect(
+        within(tree).getByRole("menuitem", { name: "Metrics", expanded: true }),
+      ).toBeInTheDocument();
       expect(within(tree).getByText("Team A")).toBeInTheDocument();
       expect(await screen.findByText("Team A Revenue")).toBeInTheDocument();
       await userEvent.click(within(tree).getByText("Team B"));
       expect(await screen.findByText("Team B Churn")).toBeInTheDocument();
+      await userEvent.click(within(tree).getByText("Metrics"));
+      expect(screen.getByText("Team B Churn")).toBeInTheDocument();
     });
 
     it("should show the Library subfolders that hold tables", async () => {

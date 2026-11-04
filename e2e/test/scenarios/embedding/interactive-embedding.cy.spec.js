@@ -1344,9 +1344,11 @@ describe("scenarios > embedding > full app", () => {
 
         H.popover().within(() => {
           cy.findByText("Library").click();
-          cy.findAllByText("Data").should("have.length", 1);
-          cy.findByText("Client A").should("be.visible");
-          cy.findByText("Client B").click();
+          cy.findByTestId("saved-entity-collection-tree").within(() => {
+            cy.findByRole("menuitem", { name: "Data" }).should("be.visible");
+            cy.findByText("Client A").should("be.visible");
+            cy.findByText("Client B").click();
+          });
           cy.findByText("Orders").click();
         });
         cy.wait("@getTableMetadata");

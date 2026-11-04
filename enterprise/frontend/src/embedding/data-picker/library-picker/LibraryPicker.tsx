@@ -103,12 +103,14 @@ export function LibraryPicker({
 // Only Data and Metrics hold data sources. Empty subfolders inside them are left
 // out by `buildCollectionTree`, in `SavedEntityPicker.tsx`. When the user can't
 // read the Data or Metrics folder, the collection tree lifts its readable
-// subfolders into the Library, so a folder can be several collections.
+// subfolders into the Library and leaves the folder out, so they're grouped
+// under a stand-in folder, as the core picker does (`LibraryRootItemList`).
 function getLibraryFolders(
   children: Collection[],
   { canSelectMetric }: { canSelectMetric: boolean },
 ) {
-  return LIBRARY_FOLDER_KINDS.flatMap(({ collectionType, type, infoItem }) => {
+  return LIBRARY_FOLDER_KINDS.flatMap((kind) => {
+    const { collectionType, type, infoItem } = kind;
     if (type === "metric" && !canSelectMetric) {
       return [];
     }
@@ -121,8 +123,46 @@ function getLibraryFolders(
         ),
     );
 
-    return collections.length > 0 ? [{ type, infoItem, collections }] : [];
+    if (collections.length === 0) {
+      return [];
+    }
+
+    const isFolderReadable = collections.some(
+      (collection) => collection.is_library_root,
+    );
+
+    return [
+      {
+        type,
+        infoItem,
+        collections: isFolderReadable
+          ? collections
+          : [getStandInFolder(kind, collections)],
+      },
+    ];
   });
+}
+
+// `is_library_root` gives it the Data or Metrics icon, and `below` keeps
+// `buildCollectionTree` from filtering it out.
+function getStandInFolder(
+  { collectionType, type, infoItem }: (typeof LIBRARY_FOLDER_KINDS)[number],
+  children: Collection[],
+): Collection {
+  return {
+    id: infoItem.id,
+    name: infoItem.name,
+    type: collectionType,
+    is_library_root: true,
+    description: null,
+    can_write: false,
+    can_restore: false,
+    can_delete: false,
+    namespace: null,
+    location: null,
+    below: [type],
+    children,
+  };
 }
 
 const LIBRARY_FOLDER_KINDS = [

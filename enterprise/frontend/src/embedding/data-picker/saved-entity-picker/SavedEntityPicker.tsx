@@ -27,6 +27,10 @@ import type {
   User,
 } from "metabase-types/api";
 
+import {
+  LIBRARY_DATA_INFO_ITEM,
+  LIBRARY_METRICS_INFO_ITEM,
+} from "../constants";
 import type { SavedEntityType } from "../types";
 
 import { SavedEntityList } from "./SavedEntityList";
@@ -36,7 +40,11 @@ import { findCollectionById } from "./utils";
 
 interface SavedEntityPickerProps {
   type: SavedEntityType;
-  /** Lists only these Library collections and their subcollections. */
+  /**
+   * Lists only these Library collections and their subcollections. A
+   * stand-in folder, with an id from `LIBRARY_STAND_IN_FOLDER_IDS`, is shown
+   * but never selected.
+   */
   libraryFolders?: Collection[];
   collectionId?: CollectionId | null;
   tableId?: TableId;
@@ -45,6 +53,14 @@ interface SavedEntityPickerProps {
   /** Without it, the title shows without a back link. */
   onBack?: () => void;
 }
+
+const LIBRARY_STAND_IN_FOLDER_IDS: CollectionId[] = [
+  LIBRARY_DATA_INFO_ITEM.id,
+  LIBRARY_METRICS_INFO_ITEM.id,
+];
+
+const isStandInFolder = (collection: ITreeNodeItem) =>
+  LIBRARY_STAND_IN_FOLDER_IDS.includes(collection.id);
 
 const getOurAnalyticsCollection = (
   collectionEntity: Collection,
@@ -154,11 +170,19 @@ function InnerSavedEntityPicker({
         return collection.id;
       }
     }
-    return collectionTree[0]?.id;
+    const [firstCollection] = collectionTree;
+    // A stand-in folder has no items of its own to list.
+    if (firstCollection && isStandInFolder(firstCollection)) {
+      return firstCollection.children[0]?.id;
+    }
+    return firstCollection?.id;
   });
 
   const handleSelect = useCallback((collection: ITreeNodeItem) => {
-    if (collection.id === PERSONAL_COLLECTIONS.id) {
+    if (
+      collection.id === PERSONAL_COLLECTIONS.id ||
+      isStandInFolder(collection)
+    ) {
       return;
     }
     // Tree erases node ids to string | number, but a selected collection

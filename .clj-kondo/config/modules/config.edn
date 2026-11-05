@@ -3689,6 +3689,7 @@
            queries
            query-permissions
            query-processor
+           serialization
            settings
            setup
            startup
@@ -4359,6 +4360,7 @@
            models
            premium-features
            search
+           serialization
            settings
            startup
            task
@@ -4507,10 +4509,10 @@
            lib
            lib.schema
            logger
-           models
            plugins
            premium-features
            search
+           serialization
            server
            settings
            setup

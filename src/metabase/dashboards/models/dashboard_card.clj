@@ -10,6 +10,7 @@
    [metabase.parameters.core :as parameters]
    [metabase.parameters.schema :as parameters.schema]
    [metabase.queries.schema :as queries.schema]
+   [metabase.serialization.core :as serialization]
    [metabase.util :as u]
    [metabase.util.malli :as mu]
    [metabase.util.malli.schema :as ms]
@@ -368,3 +369,20 @@
                                                       (assoc opts
                                                              :sort-by :position
                                                              :key-field :card_id))}})
+
+;;; ----------------------------------------------- SERIALIZATION ----------------------------------------------------
+
+(defmethod serialization/nested-owner :model/DashboardCard [_]
+  [:model/Dashboard :dashboard_id])
+
+(defmethod serialization/spec :model/DashboardCard [_]
+  {:schema    ::dashboards.schema/external-dashboard-card
+   :copy      [:col :entity_id :inline_parameters :row :size_x :size_y]
+   :transform {:dashboard_id           serialization/import-only
+               :card_id                (serialization/fk-transform :model/Card)
+               :action_id              (serialization/fk-transform :model/Action)
+               :dashboard_tab_id       (serialization/fk-transform :model/DashboardTab)
+               :parameter_mappings     serialization/parameter-mappings-transform
+               :visualization_settings serialization/visualization-settings-transform
+               :series                 {:owned [:model/DashboardCardSeries :dashboardcard_id]
+                                        :order :position}}})

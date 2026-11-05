@@ -7,6 +7,7 @@
    [metabase.api.common :as api]
    [metabase.models.interface :as mi]
    [metabase.models.serialization :as serdes]
+   [metabase.serialization.core :as serialization]
    [methodical.core :as methodical]
    [toucan2.core :as t2])
   (:import
@@ -79,6 +80,15 @@
    :transform {:bundle     {:export bundle->b64
                             :import b64->bundle}}})
 
+(defmethod serialization/spec :model/CustomVizPlugin [_]
+  {:schema    ::custom-viz-plugin.schema/external-custom-viz-plugin
+   :identity  [:identifier]
+   :copy      [:display_name :identifier :enabled :icon :manifest :metabase_version :bundle_hash]
+   :skip      [:status :error_message :dev_bundle_url]
+   :defaults  {:enabled true}
+   :transform {:bundle {:export (fn [_ _ bundles] (mapv bundle->b64 bundles))
+                        :import (fn [_ _ encoded] (mapv b64->bundle encoded))}}})
+
 (defn- bundle-columns
   "Columns derived from validating the imported `bundle` bytes against the imported `identifier`: the `:active` state
   plus manifest-derived metadata when the bundle is valid and named for this plugin, or the `:error` state with the
@@ -116,3 +126,18 @@
 
 (defmethod serdes/storage-path "CustomVizPlugin" [entity _ctx]
   [{:label "custom_viz_plugins"} {:label (:identifier entity)}])
+
+(defmethod serialization/storage-paths :model/CustomVizPlugin [_ entities _ctx]
+  (mapv (fn [entity]
+          [{:label "custom_viz_plugins"} {:label (:identifier entity)}])
+        entities))
+
+;;; ------------------------------------------------- SerDes v3 loading -------------------------------------------------
+
+(defmethod serialization/before-load :model/CustomVizPlugin [_ items]
+  (mapv (fn [item] (update item :row #(merge % (bundle-columns %)))) items))
+
+(defmethod serialization/after-load :model/CustomVizPlugin [_ items]
+  (doseq [{:keys [local]} items
+          :when local]
+    (cache/purge-plugin-cache! {:id (:id local)})))

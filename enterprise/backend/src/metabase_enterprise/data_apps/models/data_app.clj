@@ -10,6 +10,7 @@
    [metabase.models.serialization :as serdes]
    [metabase.premium-features.core :as premium-features :refer [defenterprise]]
    [metabase.search.core :as search]
+   [metabase.serialization.core :as serialization]
    [metabase.util.i18n :refer [tru]]
    [metabase.util.malli :as mu]
    [methodical.core :as methodical]
@@ -224,6 +225,43 @@
 (defmethod serdes/resource-paths "DataApp" [ingested]
   [(ingested-bundle-path ingested)])
 
+(defmethod serialization/spec :model/DataApp [_]
+  {:schema    ::data-apps.schema/external-data-app
+   :copy      [:entity_id :description :version :allowed_hosts]
+   :skip      [:enabled :bundle_hash]
+   :transform {:resource_collection_id (assoc (serialization/fk-transform :model/Collection) :as :collection)
+               :name                   {:as :slug :export serialization/unchanged :import serialization/unchanged}
+               :display_name           {:as :name :export serialization/unchanged :import serialization/unchanged}
+               :bundle_path            {:as :path :export serialization/unchanged :import serialization/unchanged}
+               :bundle                 {:as     :serdes/resources
+                                        :export (fn [_ apps bundles]
+                                                  (mapv (fn [app bundle]
+                                                          (if bundle
+                                                            {(:bundle_path app) (bundle->file bundle)}
+                                                            serialization/skip))
+                                                        apps
+                                                        bundles))
+                                        :import (fn [_ ingested files]
+                                                  (mapv (fn [app files]
+                                                          (let [path (ingested-bundle-path app)]
+                                                            (file->bundle
+                                                             (or (get files path)
+                                                                 (throw (ex-info (tru "Bundle file \"{0}\" not found." path)
+                                                                                 {:status-code 400}))))))
+                                                        ingested
+                                                        files))}}
+   :defaults  {:description nil :allowed_hosts []}})
+
+(defmethod serialization/storage-paths :model/DataApp [_ entities _ctx]
+  (mapv (fn [app]
+          [{:label data-app.config/apps-dir}
+           {:label (:slug app) :key (:entity_id app) :style :slug}
+           {:label "data_app"}])
+        entities))
+
+(defmethod serialization/resource-paths :model/DataApp [ingested]
+  [(ingested-bundle-path ingested)])
+
 (defenterprise data-app-collection-ids
   "The resource collections of the data apps, which hold the copies an app runs."
   :feature :none
@@ -236,3 +274,9 @@
   :feature :none
   [collection-id]
   (data-apps.db/data-apps-namespace-collection? collection-id))
+
+(defmethod serialization/import-dependencies :model/DataApp [_ entities]
+  (mapv (fn [{:keys [collection resource_collection_id]}]
+          (when-let [collection-entity-id (or collection resource_collection_id)]
+            [[:model/Collection collection-entity-id]]))
+        entities))

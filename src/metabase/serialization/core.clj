@@ -5,13 +5,31 @@
   [[metabase.serialization.resolve]]) translates the references of a whole batch at once."
   (:refer-clojure :exclude [import load])
   (:require
+   [metabase.serialization.fk :as serialization.fk]
    [metabase.serialization.protocol :as protocol]
+   [metabase.serialization.protocol.app-db :as protocol.app-db]
    [metabase.serialization.resolve :as resolve]
    [metabase.serialization.spec :as serialization.spec]
    [metabase.serialization.util :as serialization.util]
    [metabase.util.namespaces :as shared.ns]))
 
 (shared.ns/import-fns
+ [serialization.fk
+  database-transform
+  export-databases
+  export-fields
+  export-fks
+  export-tables
+  export-users
+  field-transform
+  fk-transform
+  import-databases
+  import-fields
+  import-fks
+  import-tables
+  import-users
+  table-transform
+  user-transform]
  [serialization.spec
   columns
   date-transform
@@ -36,6 +54,10 @@
 (def batch-size
   "The number of rows, ids or entities that serialization queries or processes together."
   serialization.util/batch-size)
+
+(def app-db-store
+  "The store of the application database."
+  protocol.app-db/store)
 
 (def export-resolver
   "The export resolver of the application database."

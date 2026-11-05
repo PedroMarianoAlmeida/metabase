@@ -2639,7 +2639,10 @@
   serialization
   {:team "Data Apps"
    :api  #{}
-   :uses #{lib util util.config}
+   :uses #{app-db
+           lib
+           util
+           util.config}
    :model-imports #{:model/Database
                     :model/Field
                     :model/Table

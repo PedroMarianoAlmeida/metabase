@@ -657,21 +657,24 @@
                 (is (str/includes? out "notebook editor"))
                 (is (not (str/includes? out "Query")))))))))))
 
+(defn- legacy-table-query
+  "The legacy MBQL form of a query on the table with `table-id`, as the frontend sends an ad-hoc query."
+  [table-id]
+  (let [mp (mt/metadata-provider)]
+    (lib/->legacy-MBQL (lib/query mp (lib.metadata/table mp table-id)))))
+
 (deftest adhoc-viewing-context-lists-model-columns-test
   (testing "an ad-hoc query on a model lists the columns that its last stage can use"
     (mt/with-temp [:model/Card {model-id :id} {:name          "Venues model"
                                                :type          :model
                                                :database_id   (mt/id)
                                                :table_id      (mt/id :venues)
-                                               :dataset_query {:database (mt/id)
-                                                               :type     :query
-                                                               :query    {:source-table (mt/id :venues)}}}]
+                                               :dataset_query (legacy-table-query (mt/id :venues))}]
       (mt/with-test-user :crowberto
         (let [out (user-context/format-viewing-context
                    {:user_is_viewing [{:type  "adhoc"
-                                       :query {:database (mt/id)
-                                               :type     :query
-                                               :query    {:source-table (str "card__" model-id)}}}]})]
+                                       :query (let [mp (mt/metadata-provider)]
+                                                (lib/->legacy-MBQL (lib/query mp (lib.metadata/card mp model-id))))}]})]
           (is (str/includes? out "Columns"))
           (is (str/includes? out "- \"NAME\", display name \"Name\", type/Text"))
           (is (str/includes? out "- \"PRICE\", display name \"Price\", type/Integer"))
@@ -683,9 +686,7 @@
     (mt/with-test-user :crowberto
       (let [out  (user-context/format-viewing-context
                   {:user_is_viewing [{:type  "adhoc"
-                                      :query {:database (mt/id)
-                                              :type     :query
-                                              :query    {:source-table (mt/id :venues)}}}]})
+                                      :query (legacy-table-query (mt/id :venues))}]})
             line (re-find #"- \"NAME\", display name \"Name\", type/Text, portable FK (\[.*\])" out)
             fk   (some-> line second json/decode)]
         (is (some? line))
@@ -712,9 +713,7 @@
         (mt/with-test-user :crowberto
           (let [out  (user-context/format-viewing-context
                       {:user_is_viewing [{:type  "adhoc"
-                                          :query {:database (mt/id)
-                                                  :type     :query
-                                                  :query    {:source-table table-id}}}]})
+                                          :query (legacy-table-query table-id)}]})
                 line (some #(when (str/includes? % "display name \"Column\"") %) (str/split-lines out))
                 fk   (second (re-find #"(?s)portable FK (\[.*\])" (str line)))]
             (is (some? fk))
@@ -830,9 +829,7 @@
     (mt/with-test-user :crowberto
       (let [out (user-context/format-viewing-context
                  {:user_is_viewing [{:type  "adhoc"
-                                     :query {:database (mt/id)
-                                             :type     :query
-                                             :query    {:source-table (mt/id :checkins)}}}]})]
+                                     :query (legacy-table-query (mt/id :checkins))}]})]
         (is (str/includes? out "\"VENUE_ID\""))
         (is (not (str/includes? out "\"LATITUDE\"")))))))
 
@@ -844,9 +841,7 @@
           (mt/with-log-messages-for-level [messages [metabase.metabot.agent.user-context :warn]]
             (let [out (user-context/format-viewing-context
                        {:user_is_viewing [{:type  "adhoc"
-                                           :query {:database (mt/id)
-                                                   :type     :query
-                                                   :query    {:source-table (mt/id :venues)}}}]})]
+                                           :query (legacy-table-query (mt/id :venues))}]})]
               (is (str/includes? out "Query"))
               (is (not (str/includes? out "Columns the query can use")))
               (let [warnings (filter #(re-find #"Omitting the column list" (:message %)) (messages))]

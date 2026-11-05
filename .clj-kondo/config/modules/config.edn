@@ -145,8 +145,7 @@
                     :model/Database
                     :model/Field
                     :model/QueryExecution
-                    :model/Table
-                    :model/User}}
+                    :model/Table}}
 
   actions.rest
   {:team "Gadget"
@@ -667,8 +666,6 @@
                     :model/CollectionBookmark
                     :model/CollectionPermissionGraphRevision
                     :model/Dashboard
-                    :model/DashboardCard
-                    :model/DashboardCardSeries
                     :model/Document
                     :model/Exploration
                     :model/NativeQuerySnippet
@@ -835,8 +832,7 @@
                     :model/ParameterCard
                     :model/Pulse
                     :model/PulseCard
-                    :model/Revision
-                    :model/User}}
+                    :model/Revision}}
 
   dashboards.rest
   {:team "UX West"
@@ -1529,7 +1525,7 @@
            util
            warehouses.schema}
    :model-exports #{:model/Measure}
-   :model-imports #{:model/Collection :model/Table :model/User}}
+   :model-imports #{:model/Collection :model/Table}}
 
   metabot
   {:team    "Metabot"
@@ -1805,7 +1801,6 @@
            metabase.models.interface
            metabase.models.resolution
            metabase.models.schema
-           metabase.models.serialization
            metabase.models.util.spec-update
            metabase.models.visualization-settings}
    :uses #{api
@@ -1814,10 +1809,8 @@
            lib
            lib.legacy-mbql
            lib.schema
-           parameters.schema
            util
-           util.classloader
-           util.config}
+           util.classloader}
    :model-imports #{:model/Action
                     :model/Card
                     :model/Channel
@@ -1860,8 +1853,7 @@
                     :model/TransformJob
                     :model/TransformJobTransformTag
                     :model/TransformTag
-                    :model/TransformTransformTag
-                    :model/User}}
+                    :model/TransformTransformTag}}
 
   mq
   {:team "UX West"
@@ -1891,7 +1883,7 @@
            users.schema
            util}
    :model-exports #{:model/NativeQuerySnippet}
-   :model-imports #{:model/Collection :model/User}}
+   :model-imports #{:model/Collection}}
 
   notification
   {:team "Gadget"
@@ -2261,8 +2253,7 @@
                     :model/Notification
                     :model/Revision
                     :model/Table
-                    :model/Timeline
-                    :model/User}}
+                    :model/Timeline}}
 
   queries.rest
   {:team "Querying Platform"
@@ -2636,7 +2627,7 @@
            util
            warehouses.schema}
    :model-exports #{:model/Segment}
-   :model-imports #{:model/Collection :model/Table :model/User}}
+   :model-imports #{:model/Collection :model/Table}}
 
   segments.rest
   {:team "Graphy"
@@ -3055,7 +3046,7 @@
            serialization
            util}
    :model-exports #{:model/Timeline :model/TimelineEvent}
-   :model-imports #{:model/Collection :model/User}}
+   :model-imports #{:model/Collection}}
 
   tracing
   {:team "DevEx"
@@ -3400,8 +3391,7 @@
                     :model/ImplicitAction
                     :model/QueryAction
                     :model/Table
-                    :model/Transform
-                    :model/User}}
+                    :model/Transform}}
 
   warehouses.rest
   {:team "UX West"

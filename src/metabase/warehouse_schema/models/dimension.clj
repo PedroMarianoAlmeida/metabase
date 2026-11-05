@@ -5,6 +5,7 @@
   (:require
    [metabase.models.interface :as mi]
    [metabase.models.serialization :as serdes]
+   [metabase.serialization.core :as serialization]
    [metabase.warehouse-schema.db :as warehouse-schema.db]
    [metabase.warehouse-schema.schema :as warehouse-schema.schema]
    [methodical.core :as methodical]
@@ -61,3 +62,31 @@
   (let [field-path (serdes/storage-path-prefixes (pop (serdes/path dimension)))]
     (update field-path (dec (count field-path))
             (fn [segment] (assoc segment :suffix dimension-slug)))))
+
+(defmethod serialization/spec :model/Dimension [_]
+  {:schema    ::warehouse-schema.schema/external-dimension
+   :identity  [:field_id]
+   :copy      [:name :type :entity_id]
+   :transform {:human_readable_field_id serialization/field-transform
+               :field_id                (assoc serialization/field-transform
+                                               :import (fn [resolver _ field-ids]
+                                                         (mapv (fn [field-id imported] (if (int? field-id) field-id imported))
+                                                               field-ids
+                                                               (serialization/import-fields
+                                                                resolver
+                                                                (map #(when-not (int? %) %) field-ids)))))}})
+
+(defmethod serialization/storage-paths :model/Dimension [_ entities _ctx]
+  (mapv (fn [dimension]
+          (let [field-path (serialization/storage-path-prefixes (:field_id dimension))]
+            (update field-path (dec (count field-path))
+                    (fn [segment] (assoc segment :suffix dimension-slug)))))
+        entities))
+
+;;; ------------------------------------------------- SerDes v3 loading -------------------------------------------------
+
+(defmethod serialization/before-load :model/Dimension [_ items]
+  (mapv (fn [{:keys [local] :as item}]
+          (cond-> item
+            local (update :row #(merge {:human_readable_field_id nil} %))))
+        items))

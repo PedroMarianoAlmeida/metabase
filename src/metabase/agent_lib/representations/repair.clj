@@ -40,8 +40,8 @@
    [metabase.lib.schema.mbql-clause :as mbql-clause]
    [metabase.lib.schema.temporal-bucketing :as lib.schema.temporal-bucketing]
    [metabase.lib.walk :as lib.walk]
-   [metabase.models.serialization.resolve :as resolve]
-   [metabase.models.serialization.resolve.mp :as resolve.mp]
+   [metabase.serialization.protocol.mp :as serialization.protocol.mp]
+   [metabase.serialization.resolve :as serialization.resolve]
    [metabase.util :as u]
    [metabase.util.date-2 :as u.date]
    [metabase.util.log :as log]
@@ -2179,7 +2179,7 @@
        (map? (nth v 1))
        (let [fk (nth v 2)]
          (or (and (vector? fk) (>= (count fk) 4))
-             (and (pos-int? fk) resolve/*numeric-ids-allowed?*)))))
+             (and (pos-int? fk) repr.resolve/*numeric-ids-allowed?*)))))
 
 (defn- try-resolve-source-table-id
   "Resolve the stage's `source-table` portable FK to a numeric id. Returns nil on any failure
@@ -2189,11 +2189,11 @@
   [import-resolver source-table-fk]
   (try
     (cond
-      (and (pos-int? source-table-fk) resolve/*numeric-ids-allowed?*)
+      (and (pos-int? source-table-fk) repr.resolve/*numeric-ids-allowed?*)
       source-table-fk
 
       (and import-resolver (vector? source-table-fk) (= 3 (count source-table-fk)))
-      (resolve/import-table-fk import-resolver source-table-fk))
+      (get (serialization.resolve/table-ids import-resolver [source-table-fk]) source-table-fk))
     (catch Exception _ nil)))
 
 (defn- try-resolve-source-card-id
@@ -2201,11 +2201,11 @@
   [import-resolver source-card-eid]
   (try
     (cond
-      (and (pos-int? source-card-eid) resolve/*numeric-ids-allowed?*)
+      (and (pos-int? source-card-eid) repr.resolve/*numeric-ids-allowed?*)
       source-card-eid
 
       (and import-resolver (string? source-card-eid))
-      (resolve/import-fk import-resolver source-card-eid 'Card))
+      (get (serialization.resolve/entity-pks import-resolver :model/Card [source-card-eid]) source-card-eid))
     (catch Exception _ nil)))
 
 (defn- try-resolve-field-id
@@ -2215,7 +2215,7 @@
   (try
     (if (pos-int? field-fk)
       field-fk
-      (resolve/import-field-fk import-resolver field-fk))
+      (get (serialization.resolve/field-ids import-resolver [field-fk]) field-fk))
     (catch Exception _ nil)))
 
 (defn- try-resolve-field-table-id
@@ -2272,7 +2272,7 @@
   MP-backed export resolver. Returns nil on failure."
   [export-resolver source-field-id]
   (try
-    (resolve/export-field-fk export-resolver source-field-id)
+    (get (serialization.resolve/field-refs export-resolver [source-field-id]) source-field-id)
     (catch Exception _ nil)))
 
 (defn- display-source-table [mp source-table-id]
@@ -2456,7 +2456,7 @@
     (when-let [table-id (try-resolve-source-table-id import-resolver source-table-fk)]
       {:kind          :table
        :table-id      table-id
-       :fks-by-target (group-by :target-table-id (resolve.mp/outbound-fks-from-table mp table-id))})
+       :fks-by-target (group-by :target-table-id (serialization.protocol.mp/outbound-fks-from-table mp table-id))})
     (when-let [card-id (when (empty? (get stage "joins"))
                          (try-resolve-source-card-id import-resolver (get stage "source-card")))]
       {:kind    :card
@@ -2493,8 +2493,8 @@
   [query mp content-store]
   (if-not (and mp (map? query) (vector? (get query "stages")) (seq (get query "stages")))
     query
-    (let [import-resolver (resolve.mp/import-resolver mp content-store)
-          export-resolver (resolve.mp/export-resolver mp)]
+    (let [import-resolver (repr.resolve/import-resolver mp content-store)
+          export-resolver (repr.resolve/export-resolver mp)]
       (update-in query ["stages" 0] resolve-implicit-joins-in-stage
                  mp import-resolver export-resolver))))
 
@@ -2553,7 +2553,7 @@
   below)."
   [mp joined-tables target-table-id]
   (vec (for [{:keys [alias source-table-id]} joined-tables
-             :let [outbound  (resolve.mp/outbound-fks-from-table mp source-table-id)
+             :let [outbound  (serialization.protocol.mp/outbound-fks-from-table mp source-table-id)
                    matching  (filter #(= target-table-id (:target-table-id %)) outbound)]
              :when (= 1 (count matching))]
          {:alias            alias
@@ -2622,7 +2622,7 @@
         joins           (get stage "joins")]
     (if-not (and source-table-id (vector? joins) (seq joins))
       stage
-      (let [outbound          (resolve.mp/outbound-fks-from-table mp source-table-id)
+      (let [outbound          (serialization.protocol.mp/outbound-fks-from-table mp source-table-id)
             outbound-by-target (group-by :target-table-id outbound)
             joined-tables     (explicit-join-source-tables import-resolver joins)
             ;; As in Pass 4, do not descend into `joins:` subtree - clauses inside an explicit
@@ -2650,8 +2650,8 @@
   [query mp content-store]
   (if-not (and mp (map? query) (vector? (get query "stages")) (seq (get query "stages")))
     query
-    (let [import-resolver (resolve.mp/import-resolver mp content-store)
-          export-resolver (resolve.mp/export-resolver mp)]
+    (let [import-resolver (repr.resolve/import-resolver mp content-store)
+          export-resolver (repr.resolve/export-resolver mp)]
       (update-in query ["stages" 0] resolve-source-field-join-alias-in-stage
                  mp import-resolver export-resolver))))
 
@@ -3136,7 +3136,7 @@
   [query mp content-store]
   (if-not (and mp (map? query) (vector? (get query "stages")))
     query
-    (let [import-resolver (delay (resolve.mp/import-resolver mp content-store))
+    (let [import-resolver (delay (repr.resolve/import-resolver mp content-store))
           results         (into [] (map-indexed (fn [idx stage]
                                                   (if (map? stage)
                                                     (repair-join-alias-refs-in-stage query mp content-store import-resolver idx stage)
@@ -3441,9 +3441,9 @@
 
   Carried over from the sexp pipeline's
   `validate/operators.clj/validate-operator-specific!` `field` branch. A no-op on surfaces
-  that accept numeric field ids (see [[metabase.models.serialization.resolve/*numeric-ids-allowed?*]])."
+  that accept numeric field ids (see [[repr.resolve/*numeric-ids-allowed?*]])."
   [form]
-  (when-not resolve/*numeric-ids-allowed?*
+  (when-not repr.resolve/*numeric-ids-allowed?*
     (match/match-one form
       ["field" #'map? #'integer?]
       (throw (ex-info
@@ -3679,7 +3679,7 @@
   agent callers pass a permission-aware store so source-card/metric metadata is not read via
   the default app-DB resolver."
   ([mp parsed]
-   (repair mp parsed resolve.mp/unchecked-app-db-content-store))
+   (repair mp parsed serialization.protocol.mp/unchecked-app-db-content-store))
   ([mp parsed content-store]
    (-> parsed
        normalize-shape*

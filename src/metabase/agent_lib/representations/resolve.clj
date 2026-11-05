@@ -10,10 +10,11 @@
        structure once to keywordize map keys but leave string *values* — clause heads, option
        values like `\"month\"`, etc. — for [[lib.normalize]] to convert.
 
-    2. **resolve portable FKs → numeric IDs** via `metabase.models.serialization.resolve/import-mbql`,
-       bound to a metadata-provider-backed resolver. Clause heads like `\"field\"` are converted
-       to `:field` keywords by `import-mbql` itself (per the `#{:field \"field\"}` match pattern),
-       so by the end of this step the MBQL form has numeric ids and keywordized heads.
+    2. **resolve portable FKs → numeric IDs** via `metabase.serialization.core/walk-import-refs`,
+       bound to a metadata-provider-backed resolver. It only swaps references (no serdes
+       normalization or schema validation, which step 3 and the repair pass own), and converts
+       clause heads like `\"field\"` to `:field` keywords, so by the end of this step the MBQL
+       form has numeric ids and keywordized heads.
 
     3. **normalize** through `lib.normalize/normalize` against `:metabase.lib.schema/query`. This:
        * adds `:lib/uuid` to every clause;
@@ -34,8 +35,9 @@
    [metabase.lib.metadata.protocols :as lib.metadata.protocols]
    [metabase.lib.normalize :as lib.normalize]
    [metabase.lib.schema :as lib.schema]
-   [metabase.models.serialization.resolve :as resolve]
-   [metabase.models.serialization.resolve.mp :as resolve.mp]
+   [metabase.serialization.core :as serialization]
+   [metabase.serialization.protocol.mp :as serialization.protocol.mp]
+   [metabase.serialization.resolve :as serialization.resolve]
    [metabase.util :as u]
    [metabase.util.date-2 :as u.date]
    [metabase.util.i18n :refer [tru]]
@@ -44,13 +46,43 @@
 
 (set! *warn-on-reflection* true)
 
+#_{:clj-kondo/ignore [:metabase/discourage-dynamic-vars]}
+(def ^:dynamic *numeric-ids-allowed?*
+  "Whether bare numeric table, field and card ids are accepted alongside portable references inside a query body being
+  resolved.
+
+  False is the default, and the safe direction: a numeric id is rejected with a teaching error rather than resolved
+  against whatever row happens to carry that id. True means the caller has established that its surface may author
+  bare ids, and accepts that every id it passes is an untrusted integer, so the readers gated on this flag re-derive,
+  explicitly, the guarantees a portable reference gets for free from resolving a name (in this database, visible,
+  readable). It is ambient rather than a parameter because one of its readers is a registered Malli schema predicate,
+  which has no call site to thread a value through."
+  false)
+
+(defn import-resolver
+  "The import resolver of the metadata-provider-backed store of `metadata-provider` and `content-store` (see
+  [[serialization.protocol.mp/import-store]]), accepting numeric ids when [[*numeric-ids-allowed?*]]."
+  ([metadata-provider]
+   (import-resolver metadata-provider serialization.protocol.mp/unchecked-app-db-content-store))
+  ([metadata-provider content-store]
+   (serialization.resolve/resolver (serialization.protocol.mp/import-store metadata-provider content-store)
+                                   {:numeric-ids-allowed? *numeric-ids-allowed?*})))
+
+(defn export-resolver
+  "The export resolver of the metadata-provider-backed store of `metadata-provider` and `content-store` (see
+  [[serialization.protocol.mp/export-store]])."
+  ([metadata-provider]
+   (serialization.resolve/resolver (serialization.protocol.mp/export-store metadata-provider)))
+  ([metadata-provider content-store]
+   (serialization.resolve/resolver (serialization.protocol.mp/export-store metadata-provider content-store))))
+
 ;;; ============================================================
 ;;; Step 1 - keywordize map keys
 ;;; ============================================================
 
 (defn- keywordize-keys*
   "Recursively convert string map keys to keywords. Preserves string *values* (e.g. clause heads,
-  temporal-unit strings, enum-valued option values) - those are handled by `import-mbql` /
+  temporal-unit strings, enum-valued option values) - those are handled by `walk-import-refs` /
   `lib.normalize` downstream.
 
   Special-cases: leaves table-FK and field-FK path vectors alone (vector-of-strings doesn't get\n  recursed into beyond the normal `vector? → mapv` walk, which is a no-op on strings)."
@@ -69,7 +101,7 @@
 
 (defn keywordize-query
   "Turn the portable string-keyed representations form into a keyword-keyed map suitable for
-  `import-mbql` / `lib.normalize`."
+  `walk-import-refs` / `lib.normalize`."
   [parsed-repr]
   (keywordize-keys* parsed-repr))
 
@@ -268,11 +300,11 @@
   Throws with informative ex-info on missing / ambiguous FK lookups (via the resolver) or on
   lib.schema normalization failures."
   ([metadata-provider parsed-repr]
-   (resolve-query metadata-provider parsed-repr resolve.mp/unchecked-app-db-content-store))
+   (resolve-query metadata-provider parsed-repr serialization.protocol.mp/unchecked-app-db-content-store))
   ([metadata-provider parsed-repr content-store]
    (let [kw-form  (keywordize-query parsed-repr)
-         resolver (resolve.mp/import-resolver metadata-provider content-store)
-         resolved (resolve/import-mbql resolver kw-form)
+         resolver (import-resolver metadata-provider content-store)
+         resolved (first (serialization/import-in-bulk resolver serialization/walk-import-refs [kw-form]))
          with-mp  (assoc resolved :lib/metadata metadata-provider)]
      (-> (lib.normalize/normalize ::lib.schema/query with-mp)
          (annotate-field-types metadata-provider)
@@ -326,11 +358,12 @@
   user who can't read them. The 2-arity form keeps the default app-DB-backed unchecked
   resolver for non-HTTP / test callers."
   ([metadata-provider pmbql-query]
-   (export-query metadata-provider pmbql-query resolve.mp/unchecked-app-db-content-store))
+   (export-query metadata-provider pmbql-query serialization.protocol.mp/unchecked-app-db-content-store))
   ([metadata-provider pmbql-query content-store]
-   (let [resolver (resolve.mp/export-resolver metadata-provider content-store)]
-     (->> pmbql-query
-          (resolve/export-mbql resolver)
+   (let [resolver (export-resolver metadata-provider content-store)]
+     (->> [pmbql-query]
+          (serialization/export-in-bulk resolver serialization/walk-export-refs)
+          first
           portable-repr-form))))
 
 (defn try-export-query

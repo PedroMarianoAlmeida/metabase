@@ -5,18 +5,28 @@
   [[metabase.serialization.resolve]]) translates the references of a whole batch at once."
   (:refer-clojure :exclude [import load])
   (:require
+   [metabase.serialization.export :as serialization.export]
+   [metabase.serialization.extract :as serialization.extract]
    [metabase.serialization.fk :as serialization.fk]
    [metabase.serialization.mbql :as serialization.mbql]
    [metabase.serialization.parameters :as serialization.parameters]
+   [metabase.serialization.portable :as serialization.portable]
    [metabase.serialization.protocol :as protocol]
    [metabase.serialization.protocol.app-db :as protocol.app-db]
    [metabase.serialization.resolve :as resolve]
    [metabase.serialization.spec :as serialization.spec]
+   [metabase.serialization.storage :as serialization.storage]
    [metabase.serialization.util :as serialization.util]
    [metabase.serialization.visualization-settings :as serialization.viz]
    [metabase.util.namespaces :as shared.ns]))
 
 (shared.ns/import-fns
+ [serialization.export
+  export
+  export-batch
+  with-export-transaction]
+ [serialization.extract
+  export-owned]
  [serialization.fk
   database-transform
   export-databases
@@ -79,7 +89,21 @@
   import-visualization-settings
   import-visualizer-settings
   link-card-model->toucan-model
-  visualization-settings-transform])
+  visualization-settings-transform]
+ [serialization.storage
+  collection-namespace-folder
+  resource-paths
+  storable
+  storage-default-collection-path
+  batch-storage-paths
+  storage-path-prefixes
+  storage-paths]
+ [serialization.portable
+  key-of
+  log-str
+  model-of
+  portable-id
+  restore-identity])
 
 (def batch-size
   "The number of rows, ids or entities that serialization queries or processes together."

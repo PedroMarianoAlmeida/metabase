@@ -6,6 +6,7 @@
   (:refer-clojure :exclude [import load])
   (:require
    [metabase.serialization.fk :as serialization.fk]
+   [metabase.serialization.mbql :as serialization.mbql]
    [metabase.serialization.protocol :as protocol]
    [metabase.serialization.protocol.app-db :as protocol.app-db]
    [metabase.serialization.resolve :as resolve]
@@ -49,7 +50,21 @@
   resolver
   target-not-found
   target-not-found?
-  visit-some])
+  visit-some]
+ [serialization.mbql
+  card-entity-id
+  card-template-tag-export-rename
+  card-template-tag-import-rename
+  card-template-tag-renames
+  export-mbql
+  import-mbql
+  mbql-transform
+  recording-card-entity-ids
+  serialized-query-source-table
+  walk-export
+  walk-import
+  walk-export-refs
+  walk-import-refs])
 
 (def batch-size
   "The number of rows, ids or entities that serialization queries or processes together."

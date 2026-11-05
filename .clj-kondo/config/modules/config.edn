@@ -2641,10 +2641,16 @@
    :api  #{}
    :uses #{app-db
            lib
+           lib.legacy-mbql
+           lib.schema
            util
            util.config}
-   :model-imports #{:model/Database
+   :model-imports #{:model/Card
+                    :model/Database
                     :model/Field
+                    :model/Measure
+                    :model/NativeQuerySnippet
+                    :model/Segment
                     :model/Table
                     :model/User}}
 

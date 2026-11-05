@@ -2646,12 +2646,18 @@
            util
            util.config}
    :model-imports #{:model/Card
+                    :model/Collection
+                    :model/Dashboard
+                    :model/DashboardTab
                     :model/Database
+                    :model/Document
                     :model/Field
                     :model/Measure
                     :model/NativeQuerySnippet
                     :model/Segment
                     :model/Table
+                    :model/Timeline
+                    :model/TimelineEvent
                     :model/User}}
 
   server

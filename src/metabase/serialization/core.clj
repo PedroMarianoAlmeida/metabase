@@ -7,11 +7,13 @@
   (:require
    [metabase.serialization.fk :as serialization.fk]
    [metabase.serialization.mbql :as serialization.mbql]
+   [metabase.serialization.parameters :as serialization.parameters]
    [metabase.serialization.protocol :as protocol]
    [metabase.serialization.protocol.app-db :as protocol.app-db]
    [metabase.serialization.resolve :as resolve]
    [metabase.serialization.spec :as serialization.spec]
    [metabase.serialization.util :as serialization.util]
+   [metabase.serialization.visualization-settings :as serialization.viz]
    [metabase.util.namespaces :as shared.ns]))
 
 (shared.ns/import-fns
@@ -64,7 +66,20 @@
   walk-export
   walk-import
   walk-export-refs
-  walk-import-refs])
+  walk-import-refs]
+ [serialization.parameters
+  export-parameter-mappings
+  export-parameters
+  import-parameter-mappings
+  import-parameters
+  parameter-mappings-transform
+  parameters-transform]
+ [serialization.viz
+  export-visualization-settings
+  import-visualization-settings
+  import-visualizer-settings
+  link-card-model->toucan-model
+  visualization-settings-transform])
 
 (def batch-size
   "The number of rows, ids or entities that serialization queries or processes together."

@@ -1518,6 +1518,7 @@
            premium-features
            remote-sync
            search
+           serialization
            users.schema
            util
            warehouses.schema}
@@ -1752,6 +1753,7 @@
            permissions
            query-processor
            request
+           serialization
            server
            util}
    :model-imports #{:model/Card :model/Field :model/Measure}}
@@ -2220,6 +2222,7 @@
            query-processor
            request
            search
+           serialization
            settings
            staleness
            sync
@@ -2619,6 +2622,7 @@
            premium-features
            remote-sync
            search
+           serialization
            users.schema
            util
            warehouses.schema}
